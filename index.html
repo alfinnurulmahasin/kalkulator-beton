@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kalkulator Volume Beton</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f4f7;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+    .card {
+      background: #fff;
+      padding: 24px;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 { font-size: 20px; margin-top: 0; }
+    label { display: block; margin-top: 12px; font-size: 14px; }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 4px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    button {
+      width: 100%;
+      margin-top: 16px;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      background: #1f6feb;
+      color: #fff;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    button:hover { background: #1a5fd0; }
+    #hasil { margin-top: 16px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Kalkulator Volume Beton</h1>
+
+    <label>Panjang (m)
+      <input type="number" id="panjang" step="any" min="0">
+    </label>
+    <label>Lebar (m)
+      <input type="number" id="lebar" step="any" min="0">
+    </label>
+    <label>Tebal (m)
+      <input type="number" id="tebal" step="any" min="0">
+    </label>
+
+    <button onclick="hitung()">Hitung</button>
+    <div id="hasil"></div>
+  </div>
+
+  <script>
+    function hitung() {
+      const p = parseFloat(document.getElementById("panjang").value);
+      const l = parseFloat(document.getElementById("lebar").value);
+      const t = parseFloat(document.getElementById("tebal").value);
+      const hasil = document.getElementById("hasil");
+
+      if (isNaN(p) || isNaN(l) || isNaN(t)) {
+        hasil.textContent = "Isi semua kolom dulu.";
+        return;
+      }
+
+      const volume = p * l * t;
+      hasil.textContent = "Volume: " + volume.toFixed(2) + " m³";
+    }
+  </script>
+</body>
+</html>
