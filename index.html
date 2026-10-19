@@ -56,6 +56,7 @@
     .field { margin-top: 14px; }
     label { display: block; font-size: 14px; font-weight: bold; }
     .hint { font-weight: normal; color: var(--muted); font-size: 12px; }
+    .rumus { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
 
     .row { display: flex; gap: 8px; margin-top: 4px; }
 
@@ -68,6 +69,7 @@
       font-size: 15px;
     }
     input { flex: 1; min-width: 0; }
+    #bentuk { width: 100%; margin-top: 4px; }
     input[aria-invalid="true"] { border-color: var(--danger); }
     input:focus, select:focus {
       outline: 2px solid var(--primary);
@@ -127,45 +129,18 @@
 <body>
   <main class="card">
     <h1>Kalkulator Volume Beton</h1>
-    <p class="subtitle">Estimasi kebutuhan beton untuk elemen berbentuk balok/pelat.</p>
+    <p class="subtitle">Estimasi kebutuhan beton untuk beberapa bentuk elemen.</p>
 
     <form id="form-hitung" novalidate>
 
       <div class="field">
-        <label for="panjang">Panjang</label>
-        <div class="row">
-          <input type="number" id="panjang" inputmode="decimal" step="any" min="0" placeholder="contoh: 5">
-          <select id="panjang-satuan" aria-label="Satuan panjang">
-            <option value="1">m</option>
-            <option value="0.01">cm</option>
-          </select>
-        </div>
-        <p class="error" id="panjang-error"></p>
+        <label for="bentuk">Bentuk elemen</label>
+        <select id="bentuk"></select>
+        <p class="rumus" id="rumus"></p>
       </div>
 
-      <div class="field">
-        <label for="lebar">Lebar</label>
-        <div class="row">
-          <input type="number" id="lebar" inputmode="decimal" step="any" min="0" placeholder="contoh: 4">
-          <select id="lebar-satuan" aria-label="Satuan lebar">
-            <option value="1">m</option>
-            <option value="0.01">cm</option>
-          </select>
-        </div>
-        <p class="error" id="lebar-error"></p>
-      </div>
-
-      <div class="field">
-        <label for="tebal">Tebal / Tinggi</label>
-        <div class="row">
-          <input type="number" id="tebal" inputmode="decimal" step="any" min="0" placeholder="contoh: 12">
-          <select id="tebal-satuan" aria-label="Satuan tebal">
-            <option value="1">m</option>
-            <option value="0.01" selected>cm</option>
-          </select>
-        </div>
-        <p class="error" id="tebal-error"></p>
-      </div>
+      <!-- Kolom ukuran dibuat otomatis oleh JavaScript sesuai bentuk -->
+      <div id="area-ukuran"></div>
 
       <div class="grid-2">
         <div class="field">
@@ -207,19 +182,68 @@
   </main>
 
   <script>
-    // Batas wajar tiap ukuran (dalam meter), untuk menangkap salah satuan
-    const BATAS = {
-      panjang: { nama: "Panjang", maksM: 1000 },
-      lebar:   { nama: "Lebar",   maksM: 1000 },
-      tebal:   { nama: "Tebal",   maksM: 10 },
+    // ---------- DATA: satuan & bentuk elemen ----------
+    // Nilai satuan = pengali untuk mengubah ke meter
+    const SATUAN = { m: 1, cm: 0.01, mm: 0.001 };
+
+    // Setiap bentuk punya: nama, rumus (teks), daftar ukuran, dan fungsi hitung.
+    // Semua nilai ukuran yang masuk ke fungsi hitung sudah dalam METER.
+    // maks = batas wajar (meter) untuk menangkap salah satuan.
+    const BENTUK = {
+      balok: {
+        nama: "Balok / Pelat",
+        rumus: "panjang × lebar × tebal",
+        ukuran: [
+          { id: "panjang", label: "Panjang", satuan: "m",  maks: 1000, contoh: 5 },
+          { id: "lebar",   label: "Lebar",   satuan: "m",  maks: 1000, contoh: 4 },
+          { id: "tebal",   label: "Tebal / Tinggi", satuan: "cm", maks: 10, contoh: 12 },
+        ],
+        hitung: function (u) {
+          return u.panjang * u.lebar * u.tebal;
+        },
+      },
+
+      silinder: {
+        nama: "Silinder (kolom bulat / tiang)",
+        rumus: "π × (diameter ÷ 2)² × tinggi",
+        ukuran: [
+          { id: "diameter", label: "Diameter", satuan: "cm", maks: 10,  contoh: 40 },
+          { id: "tinggi",   label: "Tinggi",   satuan: "m",  maks: 100, contoh: 3 },
+        ],
+        hitung: function (u) {
+          const jariJari = u.diameter / 2;
+          return Math.PI * jariJari * jariJari * u.tinggi;
+        },
+      },
+
+      pipa: {
+        nama: "Pipa / Cincin (buis beton)",
+        rumus: "π ÷ 4 × (D luar² − D dalam²) × panjang",
+        ukuran: [
+          { id: "diameterLuar",  label: "Diameter luar",  satuan: "cm", maks: 10,  contoh: 60 },
+          { id: "diameterDalam", label: "Diameter dalam", satuan: "cm", maks: 10,  contoh: 50 },
+          { id: "panjang",       label: "Panjang",        satuan: "m",  maks: 100, contoh: 1 },
+        ],
+        // Pemeriksaan tambahan yang melibatkan beberapa kolom sekaligus
+        validasi: function (u) {
+          if (u.diameterDalam >= u.diameterLuar) {
+            return { id: "diameterDalam", pesan: "Harus lebih kecil dari diameter luar." };
+          }
+          return null;
+        },
+        hitung: function (u) {
+          const luar = u.diameterLuar * u.diameterLuar;
+          const dalam = u.diameterDalam * u.diameterDalam;
+          return (Math.PI / 4) * (luar - dalam) * u.panjang;
+        },
+      },
     };
 
     // ---------- LOGIKA HITUNG (tidak menyentuh tampilan) ----------
-    function hitungVolume({ panjang, lebar, tebal, jumlah, susutPersen }) {
-      const perElemen = panjang * lebar * tebal;
-      const total = perElemen * jumlah;
+    function hitungVolume(volumePerElemen, jumlah, susutPersen) {
+      const total = volumePerElemen * jumlah;
       const denganSusut = total * (1 + susutPersen / 100);
-      return { perElemen, total, denganSusut };
+      return { perElemen: volumePerElemen, total: total, denganSusut: denganSusut };
     }
 
     function formatAngka(angka) {
@@ -230,9 +254,9 @@
     }
 
     // ---------- MEMBACA & MEMERIKSA INPUT ----------
-    function bacaUkuran(id) {
-      const input = document.getElementById(id);
-      const satuan = parseFloat(document.getElementById(id + "-satuan").value);
+    function bacaUkuran(def) {
+      const input = document.getElementById(def.id);
+      const satuan = parseFloat(document.getElementById(def.id + "-satuan").value);
       const nilai = parseFloat(input.value);
 
       if (input.value.trim() === "" || isNaN(nilai)) {
@@ -243,10 +267,8 @@
       }
 
       const meter = nilai * satuan;
-      if (meter > BATAS[id].maksM) {
-        return {
-          error: "Terlalu besar (maks. " + BATAS[id].maksM + " m). Periksa satuannya.",
-        };
+      if (meter > def.maks) {
+        return { error: "Terlalu besar (maks. " + def.maks + " m). Periksa satuannya." };
       }
       return { nilai: meter };
     }
@@ -284,14 +306,57 @@
     }
 
     // ---------- TAMPILAN ----------
+    const form = document.getElementById("form-hitung");
+    const pilihBentuk = document.getElementById("bentuk");
+    const areaUkuran = document.getElementById("area-ukuran");
+
+    function isiPilihanBentuk() {
+      pilihBentuk.innerHTML = Object.keys(BENTUK).map(function (kunci) {
+        return '<option value="' + kunci + '">' + BENTUK[kunci].nama + "</option>";
+      }).join("");
+    }
+
+    function opsiSatuan(satuanAwal) {
+      return Object.keys(SATUAN).map(function (nama) {
+        const terpilih = nama === satuanAwal ? " selected" : "";
+        return '<option value="' + SATUAN[nama] + '"' + terpilih + ">" + nama + "</option>";
+      }).join("");
+    }
+
+    function renderUkuran(kunciBentuk) {
+      const bentuk = BENTUK[kunciBentuk];
+      document.getElementById("rumus").textContent = "Rumus: " + bentuk.rumus;
+
+      areaUkuran.innerHTML = bentuk.ukuran.map(function (def) {
+        return (
+          '<div class="field">' +
+            '<label for="' + def.id + '">' + def.label + "</label>" +
+            '<div class="row">' +
+              '<input type="number" id="' + def.id + '" inputmode="decimal" step="any" min="0" placeholder="contoh: ' + def.contoh + '">' +
+              '<select id="' + def.id + '-satuan" aria-label="Satuan ' + def.label + '">' +
+                opsiSatuan(def.satuan) +
+              "</select>" +
+            "</div>" +
+            '<p class="error" id="' + def.id + '-error"></p>' +
+          "</div>"
+        );
+      }).join("");
+    }
+
     function tampilkanError(id, pesan) {
-      document.getElementById(id + "-error").textContent = pesan || "";
-      document.getElementById(id).setAttribute("aria-invalid", pesan ? "true" : "false");
+      const elemenError = document.getElementById(id + "-error");
+      const elemenInput = document.getElementById(id);
+      if (!elemenError || !elemenInput) return;
+      elemenError.textContent = pesan || "";
+      elemenInput.setAttribute("aria-invalid", pesan ? "true" : "false");
     }
 
     function bersihkanSemuaError() {
-      ["panjang", "lebar", "tebal", "jumlah", "susut"].forEach(function (id) {
-        tampilkanError(id, "");
+      document.querySelectorAll(".error").forEach(function (el) {
+        el.textContent = "";
+      });
+      document.querySelectorAll("input[aria-invalid]").forEach(function (el) {
+        el.setAttribute("aria-invalid", "false");
       });
     }
 
@@ -299,30 +364,41 @@
       document.getElementById("hasil").hidden = true;
     }
 
-    const form = document.getElementById("form-hitung");
-
+    // ---------- EVENT ----------
     form.addEventListener("submit", function (event) {
       event.preventDefault(); // cegah halaman reload
 
-      const hasilBaca = {
-        panjang: bacaUkuran("panjang"),
-        lebar: bacaUkuran("lebar"),
-        tebal: bacaUkuran("tebal"),
-        jumlah: bacaJumlah(),
-        susut: bacaSusut(),
-      };
-
+      const bentuk = BENTUK[pilihBentuk.value];
+      const nilaiUkuran = {};
       let adaError = false;
       let kolomPertamaError = null;
 
-      Object.keys(hasilBaca).forEach(function (id) {
-        const pesan = hasilBaca[id].error;
+      function catatError(id, pesan) {
         tampilkanError(id, pesan);
         if (pesan) {
           adaError = true;
           if (!kolomPertamaError) kolomPertamaError = id;
         }
+      }
+
+      // 1. Ukuran sesuai bentuk
+      bentuk.ukuran.forEach(function (def) {
+        const hasil = bacaUkuran(def);
+        catatError(def.id, hasil.error);
+        if (!hasil.error) nilaiUkuran[def.id] = hasil.nilai;
       });
+
+      // 2. Pemeriksaan tambahan antar kolom (kalau semua ukuran sudah valid)
+      if (!adaError && bentuk.validasi) {
+        const masalah = bentuk.validasi(nilaiUkuran);
+        if (masalah) catatError(masalah.id, masalah.pesan);
+      }
+
+      // 3. Jumlah elemen dan susut
+      const jumlah = bacaJumlah();
+      catatError("jumlah", jumlah.error);
+      const susut = bacaSusut();
+      catatError("susut", susut.error);
 
       if (adaError) {
         sembunyikanHasil();
@@ -330,13 +406,8 @@
         return;
       }
 
-      const hasil = hitungVolume({
-        panjang: hasilBaca.panjang.nilai,
-        lebar: hasilBaca.lebar.nilai,
-        tebal: hasilBaca.tebal.nilai,
-        jumlah: hasilBaca.jumlah.nilai,
-        susutPersen: hasilBaca.susut.nilai,
-      });
+      const volumePerElemen = bentuk.hitung(nilaiUkuran);
+      const hasil = hitungVolume(volumePerElemen, jumlah.nilai, susut.nilai);
 
       document.getElementById("hasil-per-elemen").textContent = formatAngka(hasil.perElemen);
       document.getElementById("hasil-total").textContent = formatAngka(hasil.total);
@@ -344,17 +415,32 @@
       document.getElementById("hasil").hidden = false;
     });
 
-    form.addEventListener("reset", function () {
+    // Ganti bentuk: kolom ukuran dibuat ulang, hasil lama disembunyikan
+    pilihBentuk.addEventListener("change", function () {
+      renderUkuran(pilihBentuk.value);
       bersihkanSemuaError();
       sembunyikanHasil();
     });
 
-    // Hapus pesan error begitu pengguna mulai memperbaiki isiannya
-    ["panjang", "lebar", "tebal", "jumlah", "susut"].forEach(function (id) {
-      document.getElementById(id).addEventListener("input", function () {
-        tampilkanError(id, "");
-      });
+    // Reset: setelah browser mengosongkan form, buat ulang kolom sesuai bentuk awal
+    form.addEventListener("reset", function () {
+      setTimeout(function () {
+        renderUkuran(pilihBentuk.value);
+        bersihkanSemuaError();
+        sembunyikanHasil();
+      }, 0);
     });
+
+    // Hapus pesan error begitu pengguna mulai memperbaiki isiannya
+    form.addEventListener("input", function (event) {
+      if (event.target.matches("input")) {
+        tampilkanError(event.target.id, "");
+      }
+    });
+
+    // ---------- MULAI ----------
+    isiPilihanBentuk();
+    renderUkuran(pilihBentuk.value);
   </script>
 </body>
 </html>
