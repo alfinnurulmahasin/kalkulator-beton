@@ -5,79 +5,356 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kalkulator Volume Beton</title>
   <style>
+    :root {
+      --bg: #f2f4f7;
+      --card: #ffffff;
+      --text: #1d2433;
+      --muted: #5b6475;
+      --border: #cfd5df;
+      --primary: #1f6feb;
+      --primary-hover: #1a5fd0;
+      --danger: #c62828;
+      --result-bg: #eef4ff;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #12161d;
+        --card: #1b212b;
+        --text: #e8ecf3;
+        --muted: #9aa4b5;
+        --border: #343c4a;
+        --danger: #ff7b72;
+        --result-bg: #1f2a3d;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
     body {
-      font-family: Arial, sans-serif;
-      background: #f2f4f7;
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
       display: flex;
       justify-content: center;
-      padding: 40px 16px;
+      padding: 32px 16px;
     }
+
     .card {
-      background: #fff;
+      background: var(--card);
       padding: 24px;
       border-radius: 12px;
       width: 100%;
-      max-width: 360px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      max-width: 420px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
     }
-    h1 { font-size: 20px; margin-top: 0; }
-    label { display: block; margin-top: 12px; font-size: 14px; }
-    input {
-      width: 100%;
-      padding: 8px;
-      margin-top: 4px;
-      box-sizing: border-box;
-      border: 1px solid #ccc;
+
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .subtitle { margin: 0 0 16px; font-size: 13px; color: var(--muted); }
+
+    .field { margin-top: 14px; }
+    label { display: block; font-size: 14px; font-weight: bold; }
+    .hint { font-weight: normal; color: var(--muted); font-size: 12px; }
+
+    .row { display: flex; gap: 8px; margin-top: 4px; }
+
+    input, select {
+      padding: 9px;
+      border: 1px solid var(--border);
       border-radius: 6px;
+      background: var(--card);
+      color: var(--text);
+      font-size: 15px;
     }
+    input { flex: 1; min-width: 0; }
+    input[aria-invalid="true"] { border-color: var(--danger); }
+    input:focus, select:focus {
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
+    }
+
+    .error {
+      margin: 4px 0 0;
+      min-height: 16px;
+      font-size: 12px;
+      color: var(--danger);
+    }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .actions { display: flex; gap: 8px; margin-top: 18px; }
     button {
-      width: 100%;
-      margin-top: 16px;
-      padding: 10px;
+      padding: 11px;
       border: none;
       border-radius: 6px;
-      background: #1f6feb;
-      color: #fff;
       font-size: 15px;
       cursor: pointer;
     }
-    button:hover { background: #1a5fd0; }
-    #hasil { margin-top: 16px; font-weight: bold; }
+    .btn-primary { flex: 2; background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary {
+      flex: 1;
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    #hasil {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 8px;
+      background: var(--result-bg);
+    }
+    #hasil[hidden] { display: none; }
+    .hasil-baris {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      padding: 3px 0;
+    }
+    .hasil-utama {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      font-weight: bold;
+      font-size: 17px;
+    }
+
+    .catatan { margin: 16px 0 0; font-size: 11px; color: var(--muted); }
   </style>
 </head>
 <body>
-  <div class="card">
+  <main class="card">
     <h1>Kalkulator Volume Beton</h1>
+    <p class="subtitle">Estimasi kebutuhan beton untuk elemen berbentuk balok/pelat.</p>
 
-    <label>Panjang (m)
-      <input type="number" id="panjang" step="any" min="0">
-    </label>
-    <label>Lebar (m)
-      <input type="number" id="lebar" step="any" min="0">
-    </label>
-    <label>Tebal (m)
-      <input type="number" id="tebal" step="any" min="0">
-    </label>
+    <form id="form-hitung" novalidate>
 
-    <button onclick="hitung()">Hitung</button>
-    <div id="hasil"></div>
-  </div>
+      <div class="field">
+        <label for="panjang">Panjang</label>
+        <div class="row">
+          <input type="number" id="panjang" inputmode="decimal" step="any" min="0" placeholder="contoh: 5">
+          <select id="panjang-satuan" aria-label="Satuan panjang">
+            <option value="1">m</option>
+            <option value="0.01">cm</option>
+          </select>
+        </div>
+        <p class="error" id="panjang-error"></p>
+      </div>
+
+      <div class="field">
+        <label for="lebar">Lebar</label>
+        <div class="row">
+          <input type="number" id="lebar" inputmode="decimal" step="any" min="0" placeholder="contoh: 4">
+          <select id="lebar-satuan" aria-label="Satuan lebar">
+            <option value="1">m</option>
+            <option value="0.01">cm</option>
+          </select>
+        </div>
+        <p class="error" id="lebar-error"></p>
+      </div>
+
+      <div class="field">
+        <label for="tebal">Tebal / Tinggi</label>
+        <div class="row">
+          <input type="number" id="tebal" inputmode="decimal" step="any" min="0" placeholder="contoh: 12">
+          <select id="tebal-satuan" aria-label="Satuan tebal">
+            <option value="1">m</option>
+            <option value="0.01" selected>cm</option>
+          </select>
+        </div>
+        <p class="error" id="tebal-error"></p>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="jumlah">Jumlah elemen</label>
+          <input type="number" id="jumlah" inputmode="numeric" step="1" min="1" value="1">
+          <p class="error" id="jumlah-error"></p>
+        </div>
+        <div class="field">
+          <label for="susut">Susut/cadangan <span class="hint">(%)</span></label>
+          <input type="number" id="susut" inputmode="decimal" step="any" min="0" value="5">
+          <p class="error" id="susut-error"></p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn-primary">Hitung</button>
+        <button type="reset" class="btn-secondary">Reset</button>
+      </div>
+    </form>
+
+    <section id="hasil" aria-live="polite" hidden>
+      <div class="hasil-baris">
+        <span>Volume per elemen</span>
+        <span><span id="hasil-per-elemen"></span> m³</span>
+      </div>
+      <div class="hasil-baris">
+        <span>Volume total</span>
+        <span><span id="hasil-total"></span> m³</span>
+      </div>
+      <div class="hasil-baris hasil-utama">
+        <span>Dengan susut</span>
+        <span><span id="hasil-susut"></span> m³</span>
+      </div>
+    </section>
+
+    <p class="catatan">
+      Hasil ini hanya estimasi awal dan bukan pengganti perhitungan teknis oleh ahli.
+    </p>
+  </main>
 
   <script>
-    function hitung() {
-      const p = parseFloat(document.getElementById("panjang").value);
-      const l = parseFloat(document.getElementById("lebar").value);
-      const t = parseFloat(document.getElementById("tebal").value);
-      const hasil = document.getElementById("hasil");
+    // Batas wajar tiap ukuran (dalam meter), untuk menangkap salah satuan
+    const BATAS = {
+      panjang: { nama: "Panjang", maksM: 1000 },
+      lebar:   { nama: "Lebar",   maksM: 1000 },
+      tebal:   { nama: "Tebal",   maksM: 10 },
+    };
 
-      if (isNaN(p) || isNaN(l) || isNaN(t)) {
-        hasil.textContent = "Isi semua kolom dulu.";
+    // ---------- LOGIKA HITUNG (tidak menyentuh tampilan) ----------
+    function hitungVolume({ panjang, lebar, tebal, jumlah, susutPersen }) {
+      const perElemen = panjang * lebar * tebal;
+      const total = perElemen * jumlah;
+      const denganSusut = total * (1 + susutPersen / 100);
+      return { perElemen, total, denganSusut };
+    }
+
+    function formatAngka(angka) {
+      return angka.toLocaleString("id-ID", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 3,
+      });
+    }
+
+    // ---------- MEMBACA & MEMERIKSA INPUT ----------
+    function bacaUkuran(id) {
+      const input = document.getElementById(id);
+      const satuan = parseFloat(document.getElementById(id + "-satuan").value);
+      const nilai = parseFloat(input.value);
+
+      if (input.value.trim() === "" || isNaN(nilai)) {
+        return { error: "Wajib diisi." };
+      }
+      if (nilai <= 0) {
+        return { error: "Harus lebih besar dari 0." };
+      }
+
+      const meter = nilai * satuan;
+      if (meter > BATAS[id].maksM) {
+        return {
+          error: "Terlalu besar (maks. " + BATAS[id].maksM + " m). Periksa satuannya.",
+        };
+      }
+      return { nilai: meter };
+    }
+
+    function bacaJumlah() {
+      const input = document.getElementById("jumlah");
+      const nilai = parseFloat(input.value);
+
+      if (input.value.trim() === "" || isNaN(nilai)) {
+        return { error: "Wajib diisi." };
+      }
+      if (!Number.isInteger(nilai) || nilai < 1) {
+        return { error: "Isi bilangan bulat minimal 1." };
+      }
+      if (nilai > 10000) {
+        return { error: "Terlalu banyak (maks. 10.000)." };
+      }
+      return { nilai: nilai };
+    }
+
+    function bacaSusut() {
+      const input = document.getElementById("susut");
+      if (input.value.trim() === "") {
+        return { nilai: 0 }; // kosong dianggap tanpa susut
+      }
+      const nilai = parseFloat(input.value);
+
+      if (isNaN(nilai) || nilai < 0) {
+        return { error: "Tidak boleh negatif." };
+      }
+      if (nilai > 30) {
+        return { error: "Maksimal 30%." };
+      }
+      return { nilai: nilai };
+    }
+
+    // ---------- TAMPILAN ----------
+    function tampilkanError(id, pesan) {
+      document.getElementById(id + "-error").textContent = pesan || "";
+      document.getElementById(id).setAttribute("aria-invalid", pesan ? "true" : "false");
+    }
+
+    function bersihkanSemuaError() {
+      ["panjang", "lebar", "tebal", "jumlah", "susut"].forEach(function (id) {
+        tampilkanError(id, "");
+      });
+    }
+
+    function sembunyikanHasil() {
+      document.getElementById("hasil").hidden = true;
+    }
+
+    const form = document.getElementById("form-hitung");
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault(); // cegah halaman reload
+
+      const hasilBaca = {
+        panjang: bacaUkuran("panjang"),
+        lebar: bacaUkuran("lebar"),
+        tebal: bacaUkuran("tebal"),
+        jumlah: bacaJumlah(),
+        susut: bacaSusut(),
+      };
+
+      let adaError = false;
+      let kolomPertamaError = null;
+
+      Object.keys(hasilBaca).forEach(function (id) {
+        const pesan = hasilBaca[id].error;
+        tampilkanError(id, pesan);
+        if (pesan) {
+          adaError = true;
+          if (!kolomPertamaError) kolomPertamaError = id;
+        }
+      });
+
+      if (adaError) {
+        sembunyikanHasil();
+        document.getElementById(kolomPertamaError).focus();
         return;
       }
 
-      const volume = p * l * t;
-      hasil.textContent = "Volume: " + volume.toFixed(2) + " m³";
-    }
+      const hasil = hitungVolume({
+        panjang: hasilBaca.panjang.nilai,
+        lebar: hasilBaca.lebar.nilai,
+        tebal: hasilBaca.tebal.nilai,
+        jumlah: hasilBaca.jumlah.nilai,
+        susutPersen: hasilBaca.susut.nilai,
+      });
+
+      document.getElementById("hasil-per-elemen").textContent = formatAngka(hasil.perElemen);
+      document.getElementById("hasil-total").textContent = formatAngka(hasil.total);
+      document.getElementById("hasil-susut").textContent = formatAngka(hasil.denganSusut);
+      document.getElementById("hasil").hidden = false;
+    });
+
+    form.addEventListener("reset", function () {
+      bersihkanSemuaError();
+      sembunyikanHasil();
+    });
+
+    // Hapus pesan error begitu pengguna mulai memperbaiki isiannya
+    ["panjang", "lebar", "tebal", "jumlah", "susut"].forEach(function (id) {
+      document.getElementById(id).addEventListener("input", function () {
+        tampilkanError(id, "");
+      });
+    });
   </script>
 </body>
 </html>
